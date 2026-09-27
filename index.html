@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guess Who</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Guess Who?</h1>
+    <div class="controls">
+      <label class="btn primary">
+        + Add photos
+        <input id="file-input" type="file" accept="image/*" multiple hidden>
+      </label>
+      <label class="size">
+        Card size
+        <input id="size" type="range" min="160" max="480" step="10" value="300">
+      </label>
+      <button id="reset" class="btn">Unblur all</button>
+      <button id="clear" class="btn danger">Remove all</button>
+    </div>
+  </header>
+
+  <main>
+    <p id="empty" class="empty">
+      Click <strong>+ Add photos</strong> (or drag photos onto the page) to build your board.<br>
+      Click a picture to blur it out. Click it again to bring it back.
+    </p>
+    <div id="board" class="board"></div>
+  </main>
+
+  <div id="drop-hint" class="drop-hint">Drop photos to add them</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
