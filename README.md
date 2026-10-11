@@ -6,9 +6,9 @@ A simple Guess Who board you fill with your own photos.
 - **Blur:** click a picture to blur it out. Click it again to bring it back.
 - The bottom of the page shows how many are left, like **22 of 24 remaining**. Blurring a slot knocks it out.
 - Click **Add slot** at the end of the board to add a slot. Hover any slot and click × to delete it.
-- The ☰ menu also has **Unblur all** to start a new round and **Remove all photos**.
+- The ☰ menu lets you switch between boards or **Add new board**. Each board keeps its own photos. For the board you're on, it also has **Add photos**, **Reset Board** (unblur everyone), **Background Color**, **Rename Board** and **Delete Board**.
 - The board shows 12 slots per row (6 per row on phones) and starts with 24 blank slots.
-- Photos are saved in your browser, so they're still there after a refresh. They are not uploaded anywhere.
+- Boards and photos are saved in your browser, so they're still there after a refresh. They are not uploaded anywhere.
 
 It's a plain static site (HTML, CSS and JS) with no build step.
 
