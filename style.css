@@ -207,10 +207,19 @@ main { padding: 10px max(24px, 7vw) 80px; }
   pointer-events: none;
   transition: filter 0.25s ease, transform 0.25s ease;
 }
+/* Knocked out: faded under a soft grey haze, still recognisable */
 .slot.blurred img {
-  filter: blur(14px) grayscale(0.6) brightness(0.6);
-  transform: scale(1.12);
+  filter: blur(0.6px) saturate(0.55) brightness(0.82);
+  opacity: 0.8;
 }
+.slot.blurred::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(70, 80, 100, 0.32);
+  pointer-events: none;
+}
+.slot.blurred { border-color: rgba(255, 255, 255, 0.75); }
 
 .remove {
   position: absolute;

@@ -3,7 +3,7 @@
 A simple Guess Who board you fill with your own photos.
 
 - **Add photos:** click any blank slot to pick a photo for it, or open the ☰ menu and use **+ Add photos** to fill the blank slots in order. You can also drag images onto the page.
-- **Blur:** click a picture to blur it out. Click it again to bring it back.
+- **Knock out:** click a picture to fade it under a grey haze. Click it again to bring it back.
 - The bottom of the page shows how many are left, like **22 of 24 remaining**. Blurring a slot knocks it out.
 - Click **Add slot** at the end of the board to add a slot. Hover any slot and click × to delete it.
 - The ☰ menu lets you switch between boards or **Add new board**. Each board keeps its own photos. For the board you're on, it also has **Add photos**, **Reset Board** (unblur everyone), **Background Color**, **Rename Board** and **Delete Board**.
