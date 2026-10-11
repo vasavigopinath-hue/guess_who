@@ -283,7 +283,7 @@ body.dragging .drop-hint { display: flex; }
   z-index: 20;
   text-align: center;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: rgba(60, 60, 67, 0.6);
   pointer-events: none;
 }
@@ -304,7 +304,7 @@ body.dragging .drop-hint { display: flex; }
   .menu-item { font-size: 1.05rem; }
   header { padding-top: 44px; }
   main { padding: 10px 16px 70px; }
-  .remaining { font-size: 1rem; bottom: 12px; }
+  .remaining { font-size: 0.85rem; bottom: 12px; }
   .add-slot { font-size: 0.7rem; border-width: 2px; }
   .add-slot span { font-size: 1.6rem; }
 }
