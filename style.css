@@ -1,6 +1,6 @@
 @font-face {
-  font-family: "Luckiest Guy";
-  src: url("fonts/luckiest-guy.woff2") format("woff2");
+  font-family: "Titan One";
+  src: url("fonts/titan-one.woff2") format("woff2");
   font-display: block;
 }
 @font-face {
@@ -124,22 +124,24 @@ body {
 .btn.primary { color: #fff; background: var(--accent); }
 .btn.danger { color: var(--danger); background: #fdecec; }
 
-/* Logo: 3D block letters (navy depth, white outline, glossy red) */
+/* Logo: red letters, white outline, one big blue outline with a darker blue edge underneath */
 header {
   display: flex;
   justify-content: center;
   padding: 18px 16px 6px;
 }
-.logo { width: min(420px, 80vw); height: auto; overflow: visible; }
-.logo text { font-family: "Luckiest Guy", "Arial Black", sans-serif; }
+.logo { width: min(400px, 78vw); height: auto; overflow: visible; }
+.logo text { font-family: "Titan One", "Arial Black", sans-serif; }
 .logo use { stroke-linejoin: round; }
-.logo-depth { fill: #12245e; stroke: #12245e; stroke-width: 34px; }
-.logo-depth:first-of-type { filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35)); }
-.logo-outer { fill: var(--navy); stroke: var(--navy); stroke-width: 34px; }
-.logo-inner { fill: #fff; stroke: #fff; stroke-width: 16px; }
-.logo-bevel { fill: #8f0d14; }
+.logo-depth {
+  fill: #13317f;
+  stroke: #13317f;
+  stroke-width: 50px;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.3));
+}
+.logo-outer { fill: #1f52c9; stroke: #1f52c9; stroke-width: 50px; }
+.logo-inner { fill: #fff; stroke: #fff; stroke-width: 14px; }
 .logo-fill { fill: url(#logo-red); }
-.logo-shine { fill: url(#logo-shine); }
 
 /* Board */
 main { padding: 10px 24px 110px; }
@@ -229,7 +231,7 @@ main { padding: 10px 24px 110px; }
   align-items: center;
   justify-content: center;
   padding: 16px;
-  font-family: "Luckiest Guy", sans-serif;
+  font-family: "Titan One", sans-serif;
   font-size: 2.2rem;
   text-align: center;
   color: #fff;
