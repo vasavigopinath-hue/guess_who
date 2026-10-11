@@ -131,7 +131,7 @@ header {
   padding: 18px 16px 6px;
 }
 .logo { width: min(400px, 78vw); height: auto; overflow: visible; }
-.logo text { font-family: "Titan One", "Arial Black", sans-serif; }
+
 .logo use { stroke-linejoin: round; }
 .logo-depth {
   fill: #13317f;
