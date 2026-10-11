@@ -206,6 +206,7 @@ async function putPhoto(b, i, file) {
     if (b.slots[i]) deletePhotos([b.slots[i].photo]);
     b.slots[i] = { photo: id, blurred: false };
     saveBoard(b);
+    markDirty();
     if (b === current) render();
   } catch (err) {
     console.warn(err);
@@ -231,6 +232,7 @@ function addSlot() {
   if (current.slots.length >= MAX_SLOTS) return;
   current.slots.push(null);
   saveBoard();
+  markDirty();
   render();
 }
 
@@ -239,6 +241,7 @@ function deleteSlot(i) {
   const [gone] = current.slots.splice(i, 1);
   if (gone) deletePhotos([gone.photo]);
   saveBoard();
+  markDirty();
   render();
 }
 
@@ -261,6 +264,7 @@ function addBoard() {
   const b = makeBoard(name.trim() || `Board ${boards.length + 1}`);
   boards.push(b);
   saveBoard(b);
+  markDirty();
   switchTo(b);
   toggleMenu(false);
 }
@@ -270,6 +274,7 @@ function renameBoard() {
   if (name === null || !name.trim()) return;
   current.name = name.trim();
   saveBoard();
+  markDirty();
   render();
 }
 
@@ -283,6 +288,7 @@ function deleteBoard() {
     boards.push(makeBoard("My Board"));
     saveBoard(boards[0]);
   }
+  markDirty();
   switchTo(boards[0]);
   toggleMenu(false);
 }
@@ -339,6 +345,7 @@ function renderMenu() {
     sw.addEventListener("click", () => {
       current.bg = bg.id;
       saveBoard();
+      markDirty();
       applyBackground();
       renderMenu();
     });
@@ -378,7 +385,7 @@ function slotEl(s, i) {
   el.setAttribute("aria-pressed", String(s.blurred));
 
   const img = document.createElement("img");
-  img.src = photoSrc.get(s.photo) || "";
+  img.src = photoSrc.get(s.photo) || (s.photo.startsWith("/api/") ? s.photo : "");
   img.alt = "";
   img.draggable = false;
   el.append(img, remove);
@@ -478,6 +485,159 @@ window.addEventListener("drop", (e) => {
   fillBlank(e.dataTransfer.files, target ? Number(target.dataset.slot) : 0);
 });
 
+// ---------- saving to the website ----------
+// Save uploads every board and photo, so the site shows them on any device.
+// Blur state isn't saved: each device plays its own round.
+
+const saveBtn = document.getElementById("save-btn");
+const saveLabel = document.getElementById("save-label");
+const pref = (key, value) => {
+  try {
+    if (value === undefined) return localStorage.getItem("guess-who-" + key);
+    if (value === null) localStorage.removeItem("guess-who-" + key);
+    else localStorage.setItem("guess-who-" + key, value);
+  } catch {}
+  return null;
+};
+let dirty = pref("dirty") === "1";
+let saving = false;
+
+function markDirty() {
+  dirty = true;
+  pref("dirty", "1");
+  showSaveState();
+}
+
+function showSaveState(text) {
+  saveLabel.textContent = text || (saving ? "Saving…" : dirty ? "Save" : "Saved");
+  saveBtn.classList.toggle("unsaved", dirty && !saving);
+  saveBtn.disabled = saving;
+}
+
+async function sha256(buffer) {
+  const hash = await crypto.subtle.digest("SHA-256", buffer);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// fetch() that asks for the save password once if the site has one set.
+async function sendWithPassword(url, options) {
+  for (let tries = 0; tries < 3; tries++) {
+    const res = await fetch(url, { ...options, headers: { ...options.headers, "X-Save-Password": pref("pw") || "" } });
+    if (res.status !== 401) return res;
+    const pw = prompt(tries ? "That password didn't work. Try again:" : "Enter the save password:");
+    if (pw === null) throw new Error("cancelled");
+    pref("pw", pw);
+  }
+  throw new Error("wrong-password");
+}
+
+async function uploadPhoto(src) {
+  const bytes = await (await fetch(src)).arrayBuffer();
+  const name = (await sha256(bytes)) + ".jpg";
+  const res = await sendWithPassword(`/api/photo?name=${name}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: bytes,
+  });
+  if (!res.ok) throw Object.assign(new Error("upload failed"), { status: res.status });
+  return (await res.json()).url;
+}
+
+async function saveToSite() {
+  if (saving) return;
+  saving = true;
+  showSaveState();
+  try {
+    // 1. Upload photos that only exist on this device.
+    const local = new Set();
+    for (const b of boards) for (const s of b.slots) if (s && (photoSrc.get(s.photo) || "").startsWith("data:")) local.add(s.photo);
+    let done = 0;
+    for (const id of local) {
+      showSaveState(`Saving ${++done}/${local.size}…`);
+      const url = await uploadPhoto(photoSrc.get(id));
+      for (const b of boards) for (const s of b.slots) if (s && s.photo === id) s.photo = url;
+      photoSrc.set(url, url);
+      photoSrc.delete(id);
+      await write("photos", (st) => {
+        st.delete(id);
+        st.put({ id: url, src: url });
+      });
+    }
+    await write("boards", (st) => boards.forEach((b) => st.put(b)));
+
+    // 2. Save the boards themselves.
+    showSaveState("Saving…");
+    const res = await sendWithPassword("/api/board", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        boards: boards.map((b) => ({ id: b.id, name: b.name, bg: b.bg, created: b.created, slots: b.slots.map((s) => s && { photo: s.photo }) })),
+      }),
+    });
+    if (!res.ok) throw Object.assign(new Error("save failed"), { status: res.status });
+    pref("synced", (await res.json()).savedAt);
+    dirty = false;
+    pref("dirty", null);
+  } catch (err) {
+    console.warn(err);
+    if (err.message !== "cancelled") alert(saveErrorMessage(err));
+  } finally {
+    saving = false;
+    render(); // photos may now point at their saved copies
+    showSaveState();
+  }
+}
+
+function saveErrorMessage(err) {
+  if (err.status === 503) return "Saving isn't set up yet: connect a Blob store to this project in Vercel (Storage → Blob), then redeploy.";
+  if (err.status === 404) return "Saving only works on the Vercel site, not on a local copy.";
+  if (err.message === "wrong-password") return "Wrong save password, so nothing was saved.";
+  return "Couldn't save right now. Check your internet connection and try again.";
+}
+
+// Load the boards saved on the site if they're newer than what this device has.
+async function loadFromSite() {
+  let data;
+  try {
+    const res = await withTimeout(fetch("/api/board", { cache: "no-store" }), 6000);
+    if (!res.ok) return;
+    data = await res.json();
+  } catch {
+    return; // offline or not on Vercel: keep using what's on this device
+  }
+  if (!data.savedAt || !Array.isArray(data.boards) || !data.boards.length) return;
+  if (data.savedAt === pref("synced")) return;
+  if (dirty && !confirm("There's a newer saved version of the boards on the website. Load it?\n\nChanges on this device that weren't saved will be replaced.")) {
+    pref("synced", data.savedAt); // don't ask again for this version; saving will overwrite it
+    return;
+  }
+
+  // Keep this device's blur state for photos that are still in the same spot.
+  const blurredBefore = new Set();
+  for (const b of boards) b.slots.forEach((s, i) => s && s.blurred && blurredBefore.add(`${b.id}|${i}|${s.photo}`));
+  boards = data.boards.map((b) => ({
+    ...b,
+    slots: b.slots.map((s, i) => s && { photo: s.photo, blurred: blurredBefore.has(`${b.id}|${i}|${s.photo}`) }),
+  }));
+  photoSrc.clear();
+  for (const b of boards) for (const s of b.slots) if (s) photoSrc.set(s.photo, s.photo);
+  await write("photos", (st) => {
+    st.clear();
+    for (const id of photoSrc.keys()) st.put({ id, src: id });
+  });
+  await write("boards", (st) => {
+    st.clear();
+    boards.forEach((b) => st.put(b));
+  });
+  pref("synced", data.savedAt);
+  dirty = false;
+  pref("dirty", null);
+  switchTo(boards.find((b) => current && b.id === current.id) || boards[0]);
+}
+
+saveBtn.addEventListener("click", saveToSite);
+showSaveState();
+
 // ---------- start up ----------
 
 (async function init() {
@@ -498,5 +658,8 @@ window.addEventListener("drop", (e) => {
   }
   let savedId = null;
   try { savedId = localStorage.getItem("guess-who-board"); } catch {}
+  // Photos added before this device ever saved haven't reached the website yet.
+  if (!pref("synced") && boards.some((b) => b.slots.some(Boolean))) markDirty();
   switchTo(boards.find((b) => b.id === savedId) || boards[0]);
+  loadFromSite();
 })();

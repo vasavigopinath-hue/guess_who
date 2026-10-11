@@ -70,6 +70,30 @@ body.solid-bg .remaining { color: rgba(255, 255, 255, 0.7); }
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+/* Save button (top right) */
+.save-btn {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--navy);
+  background: rgba(255, 255, 255, 0.92);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+.save-btn .ic { width: 20px; height: 20px; }
+.save-btn.unsaved { color: #fff; background: var(--accent); }
+.save-btn:disabled { cursor: progress; opacity: 0.85; }
+
 /* Dark dropdown menu */
 .menu {
   position: fixed;
@@ -310,6 +334,7 @@ body.dragging .drop-hint { display: flex; }
   .remove { width: 22px; height: 22px; font-size: 15px; top: 3px; right: 3px; }
   .menu-btn { top: 10px; left: 8px; }
   .menu { top: 58px; left: 16px; }
+  .save-btn { top: 12px; right: 10px; padding: 7px 12px; font-size: 0.85rem; }
   header { padding-top: 44px; }
   main { padding: 10px 16px 70px; }
   .remaining { font-size: 0.85rem; bottom: 12px; }
