@@ -11,7 +11,6 @@
 }
 
 :root {
-  --card-size: 150px;
   --gap: 14px;
   --slot-border: #ffffff;
   --empty: rgba(22, 42, 96, 0.38);
@@ -125,32 +124,31 @@ body {
 .btn.primary { color: #fff; background: var(--accent); }
 .btn.danger { color: var(--danger); background: #fdecec; }
 
-/* Logo: navy outline, white outline, red letters */
+/* Logo: 3D block letters (navy depth, white outline, glossy red) */
 header {
   display: flex;
   justify-content: center;
-  padding: 22px 16px 10px;
+  padding: 18px 16px 6px;
 }
-.logo { width: min(400px, 78vw); height: auto; overflow: visible; }
+.logo { width: min(420px, 80vw); height: auto; overflow: visible; }
 .logo text { font-family: "Luckiest Guy", "Arial Black", sans-serif; }
 .logo use { stroke-linejoin: round; }
-.logo-outer {
-  fill: var(--navy);
-  stroke: var(--navy);
-  stroke-width: 34px;
-  filter: drop-shadow(0 6px 0 rgba(0, 0, 0, 0.2));
-}
+.logo-depth { fill: #12245e; stroke: #12245e; stroke-width: 34px; }
+.logo-depth:first-of-type { filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35)); }
+.logo-outer { fill: var(--navy); stroke: var(--navy); stroke-width: 34px; }
 .logo-inner { fill: #fff; stroke: #fff; stroke-width: 16px; }
-.logo-fill { fill: var(--accent); }
+.logo-bevel { fill: #8f0d14; }
+.logo-fill { fill: url(#logo-red); }
+.logo-shine { fill: url(#logo-shine); }
 
 /* Board */
-main { padding: 10px 16px 60px; }
+main { padding: 10px 24px 110px; }
 
 .board {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--card-size), 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: var(--gap);
-  max-width: calc(12 * var(--card-size) + 11 * var(--gap));
+  max-width: 1700px;
   margin: 0 auto;
 }
 
@@ -219,6 +217,7 @@ main { padding: 10px 16px 60px; }
   opacity: 0;
   transition: opacity 0.15s;
 }
+.slot.empty .remove { background: rgba(179, 38, 30, 0.85); }
 .slot:hover .remove, .remove:focus-visible { opacity: 1; }
 @media (hover: none) { .remove { opacity: 0.85; } }
 
@@ -240,10 +239,57 @@ main { padding: 10px 16px 60px; }
 }
 body.dragging .drop-hint { display: flex; }
 
+/* Bottom bar: slot count + people remaining */
+.status-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 22px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 10px 20px;
+  font-weight: 800;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%);
+}
+.slot-controls { display: flex; align-items: center; gap: 10px; }
+.slot-controls button {
+  width: 36px;
+  height: 36px;
+  font: inherit;
+  font-size: 1.3rem;
+  color: #fff;
+  background: var(--navy);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.slot-controls button:hover { filter: brightness(1.2); }
+.slot-controls button:disabled { opacity: 0.35; cursor: default; filter: none; }
+.remaining { font-size: 1.1rem; }
+.remaining strong { color: var(--accent); font-size: 1.35rem; }
+
+/* Medium screens: keep 12 per row but tighten spacing */
+@media (max-width: 1100px) {
+  :root { --gap: 8px; }
+  .slot { border-width: 2px; border-radius: 6px; }
+}
+
 @media (max-width: 600px) {
-  :root { --gap: 10px; }
+  /* 12 across is too tiny to tap on a phone, so phones show 6 per row */
+  :root { --gap: 6px; }
+  .board { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .remove { width: 22px; height: 22px; font-size: 15px; top: 3px; right: 3px; }
   .menu-btn { top: 10px; left: 8px; }
   .menu { top: 58px; left: 16px; }
   header { padding-top: 44px; }
-  .board { grid-template-columns: repeat(auto-fill, minmax(min(var(--card-size), 28vw), 1fr)); }
+  main { padding: 10px 16px 130px; }
 }

@@ -20,44 +20,61 @@
       + Add photos
       <input id="bulk-input" type="file" accept="image/*" multiple hidden>
     </label>
-    <p class="hint">Fills the empty slots in order. You can also drag photos onto the page, or click any empty slot.</p>
-
-    <div class="row">
-      <span>Slots</span>
-      <div class="stepper">
-        <button id="fewer" type="button" aria-label="Fewer slots">−</button>
-        <output id="slot-count">24</output>
-        <button id="more" type="button" aria-label="More slots">+</button>
-      </div>
-    </div>
-
-    <label class="row">
-      <span>Card size</span>
-      <input id="size" type="range" min="90" max="320" step="10" value="150">
-    </label>
+    <p class="hint">Fills the blank slots in order. You can also drag photos onto the page, or click any blank slot.</p>
 
     <button id="reset" class="btn" type="button">Unblur all</button>
     <button id="clear" class="btn danger" type="button">Remove all photos</button>
   </aside>
 
   <header>
-    <svg class="logo" viewBox="-20 -10 580 270" role="img" aria-label="Guess Who?">
+    <svg class="logo" viewBox="-30 -20 600 300" role="img" aria-label="Guess Who?">
       <defs>
         <g id="logo-words" transform="rotate(-6 260 125)">
           <text x="225" y="112" text-anchor="middle" font-size="120">Guess</text>
           <text x="215" y="222" text-anchor="middle" font-size="120">Who</text>
           <text x="440" y="215" text-anchor="middle" font-size="200">?</text>
         </g>
+        <linearGradient id="logo-red" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ff6b5e"/>
+          <stop offset="0.5" stop-color="#e8232c"/>
+          <stop offset="1" stop-color="#b3121b"/>
+        </linearGradient>
+        <linearGradient id="logo-shine" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+          <stop offset="0.45" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
       </defs>
+      <!-- thick navy block underneath gives the 3D depth -->
+      <use href="#logo-words" class="logo-depth" transform="translate(5 16)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(4.5 14.4)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(4 12.8)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(3.5 11.2)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(3 9.6)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(2.5 8)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(2 6.4)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(1.5 4.8)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(1 3.2)"/>
+      <use href="#logo-words" class="logo-depth" transform="translate(0.5 1.6)"/>
       <use href="#logo-words" class="logo-outer"/>
       <use href="#logo-words" class="logo-inner"/>
+      <use href="#logo-words" class="logo-bevel" transform="translate(0 4)"/>
       <use href="#logo-words" class="logo-fill"/>
+      <use href="#logo-words" class="logo-shine"/>
     </svg>
   </header>
 
   <main>
     <div id="board" class="board"></div>
   </main>
+
+  <footer class="status-bar">
+    <div class="slot-controls">
+      <button id="fewer" type="button" aria-label="Remove a slot">−</button>
+      <span><strong id="slot-count">24</strong> slots</span>
+      <button id="more" type="button" aria-label="Add a slot">+</button>
+    </div>
+    <div id="remaining" class="remaining" aria-live="polite"></div>
+  </footer>
 
   <input id="slot-input" type="file" accept="image/*" hidden>
   <div id="drop-hint" class="drop-hint">Drop photos to fill the empty slots</div>

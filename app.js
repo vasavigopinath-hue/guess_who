@@ -1,22 +1,23 @@
-// Photos are saved in the browser (IndexedDB), so the board is still there after a refresh.
+// The board is saved in the browser (IndexedDB), so it's still there after a refresh.
 const DB_NAME = "guess-who";
 const STORE = "slots";
 const MAX_SIDE = 900; // resize big photos so they load fast and fit in storage
-const MIN_SLOTS = 4;
-const MAX_SLOTS = 120;
-const STEP = 4;
+const DEFAULT_SLOTS = 24; // two full rows of 12
+const MAX_SLOTS = 240;
 
 const board = document.getElementById("board");
 const bulkInput = document.getElementById("bulk-input");
 const slotInput = document.getElementById("slot-input");
-const sizeInput = document.getElementById("size");
 const countOut = document.getElementById("slot-count");
+const remainingOut = document.getElementById("remaining");
+const fewerBtn = document.getElementById("fewer");
+const moreBtn = document.getElementById("more");
 const menu = document.getElementById("menu");
 const menuBtn = document.getElementById("menu-btn");
 
 let db;
-let slotCount = 24;
-let photos = new Map(); // slot index -> { slot, src, blurred }
+// One entry per slot: null for a blank slot, or { src, blurred } for a photo.
+let slots = [];
 let pickingSlot = null;
 
 // ---------- storage ----------
@@ -43,26 +44,46 @@ function openDb() {
   });
 }
 
-function tx(mode, fn) {
+function tx(fn) {
   if (!db) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    const t = db.transaction(STORE, mode);
+    const t = db.transaction(STORE, "readwrite");
     const result = fn(t.objectStore(STORE));
     t.oncomplete = () => resolve(result && result.result);
     t.onerror = () => reject(t.error);
+  }).catch((err) => console.warn(err));
+}
+
+function saveSlot(i) {
+  const p = slots[i];
+  return tx((s) => (p ? s.put({ slot: i, src: p.src, blurred: p.blurred }) : s.delete(i)));
+}
+
+// Used when slots shift position (a slot was deleted in the middle).
+function saveAll() {
+  return tx((s) => {
+    s.clear();
+    slots.forEach((p, i) => p && s.put({ slot: i, src: p.src, blurred: p.blurred }));
   });
 }
 
-const savePhoto = (p) => tx("readwrite", (s) => s.put(p)).catch(() => {});
-const deletePhoto = (slot) => tx("readwrite", (s) => s.delete(slot)).catch(() => {});
-const clearPhotos = () => tx("readwrite", (s) => s.clear()).catch(() => {});
-const loadPhotos = () => tx("readonly", (s) => s.getAll());
-
-function savePref(key, value) {
-  try { localStorage.setItem("guess-who-" + key, value); } catch {}
+function loadPhotos() {
+  if (!db) return Promise.resolve([]);
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE).objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
-function loadPref(key) {
-  try { return localStorage.getItem("guess-who-" + key); } catch { return null; }
+
+function saveCount() {
+  try { localStorage.setItem("guess-who-slots", slots.length); } catch {}
+}
+function loadCount() {
+  try {
+    const v = localStorage.getItem("guess-who-slots");
+    return v === null ? null : Number(v);
+  } catch { return null; }
 }
 
 // ---------- images ----------
@@ -88,87 +109,127 @@ function resizeImage(file) {
   });
 }
 
-async function putPhoto(slot, file) {
+async function putPhoto(i, file) {
   try {
-    const p = { slot, src: await resizeImage(file), blurred: false };
-    photos.set(slot, p);
-    savePhoto(p);
-    renderSlot(slot);
+    const src = await resizeImage(file);
+    while (slots.length <= i) slots.push(null);
+    slots[i] = { src, blurred: false };
+    saveSlot(i);
+    saveCount();
+    render();
   } catch (err) {
     console.warn(err);
   }
 }
 
-// Fill empty slots in order, adding more slots if needed.
-async function fillEmpty(files, startAt = 0) {
+// Fill blank slots in order (starting at startAt), adding more slots if needed.
+async function fillBlank(files, startAt = 0) {
   const images = [...files].filter((f) => f.type.startsWith("image/"));
-  let slot = startAt;
+  let i = startAt;
   for (const file of images) {
-    while (photos.has(slot)) slot++;
-    if (slot >= slotCount) setSlotCount(Math.ceil((slot + 1) / STEP) * STEP);
-    await putPhoto(slot, file);
-    slot++;
+    while (slots[i]) i++;
+    if (i >= MAX_SLOTS) break;
+    await putPhoto(i, file);
+    i++;
   }
+}
+
+// ---------- slots ----------
+
+function addSlot() {
+  if (slots.length >= MAX_SLOTS) return;
+  slots.push(null);
+  saveCount();
+  render();
+}
+
+// Remove the last slot. If it holds a photo, check first.
+function removeLastSlot() {
+  if (!slots.length) return;
+  const last = slots.length - 1;
+  if (slots[last] && !confirm("The last slot has a photo. Delete it?")) return;
+  slots.pop();
+  saveSlot(last); // slot is gone, so this deletes it from storage
+  saveCount();
+  render();
+}
+
+// Delete one specific slot; the ones after it slide back to fill the gap.
+function deleteSlot(i) {
+  slots.splice(i, 1);
+  saveAll();
+  saveCount();
+  render();
 }
 
 // ---------- rendering ----------
 
-function slotEl(i) {
-  return board.children[i];
-}
-
-function renderBoard() {
+function render() {
   board.innerHTML = "";
-  for (let i = 0; i < slotCount; i++) {
-    const el = document.createElement("button");
-    el.type = "button";
-    el.className = "slot";
-    el.dataset.slot = i;
-    board.appendChild(el);
-    renderSlot(i);
+  slots.forEach((p, i) => board.appendChild(slotEl(p, i)));
+
+  countOut.textContent = slots.length;
+  fewerBtn.disabled = slots.length === 0;
+  moreBtn.disabled = slots.length >= MAX_SLOTS;
+
+  const people = slots.filter(Boolean);
+  const left = people.filter((p) => !p.blurred).length;
+  if (!people.length) {
+    remainingOut.textContent = "Add photos to start";
+  } else {
+    remainingOut.innerHTML = "";
+    const strong = document.createElement("strong");
+    strong.textContent = left;
+    remainingOut.append(strong, ` of ${people.length} ${people.length === 1 ? "person" : "people"} remaining`);
   }
 }
 
-function renderSlot(i) {
-  const el = slotEl(i);
-  if (!el) return;
-  const p = photos.get(i);
-  el.innerHTML = "";
-  el.classList.toggle("empty", !p);
-  el.classList.toggle("blurred", !!(p && p.blurred));
-
-  if (!p) {
-    el.setAttribute("aria-label", "Empty slot " + (i + 1) + ": add a photo");
-    el.removeAttribute("aria-pressed");
-    return;
-  }
-
-  el.setAttribute("aria-label", "Photo " + (i + 1) + (p.blurred ? " (blurred)" : ""));
-  el.setAttribute("aria-pressed", String(p.blurred));
-  const img = document.createElement("img");
-  img.src = p.src;
-  img.alt = "";
-  img.draggable = false;
+function slotEl(p, i) {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "slot" + (p ? (p.blurred ? " blurred" : "") : " empty");
+  el.dataset.slot = i;
 
   const remove = document.createElement("span");
   remove.className = "remove";
   remove.setAttribute("role", "button");
-  remove.setAttribute("aria-label", "Remove photo");
   remove.textContent = "×";
 
+  if (!p) {
+    el.setAttribute("aria-label", `Blank slot ${i + 1}: add a photo`);
+    remove.title = "Delete this slot";
+    remove.setAttribute("aria-label", "Delete this slot");
+    el.append(remove);
+    return el;
+  }
+
+  el.setAttribute("aria-label", `Person ${i + 1}${p.blurred ? " (knocked out)" : ""}`);
+  el.setAttribute("aria-pressed", String(p.blurred));
+  remove.title = "Remove photo";
+  remove.setAttribute("aria-label", "Remove photo");
+
+  const img = document.createElement("img");
+  img.src = p.src;
+  img.alt = "";
+  img.draggable = false;
   el.append(img, remove);
+  return el;
 }
 
 board.addEventListener("click", (e) => {
   const el = e.target.closest(".slot");
   if (!el) return;
   const i = Number(el.dataset.slot);
-  const p = photos.get(i);
+  const p = slots[i];
 
   if (e.target.closest(".remove")) {
-    photos.delete(i);
-    deletePhoto(i);
-    renderSlot(i);
+    if (p) {
+      slots[i] = null; // photo off, blank slot stays
+      saveSlot(i);
+      render();
+    } else {
+      deleteSlot(i);
+    }
     return;
   }
   if (!p) {
@@ -177,8 +238,8 @@ board.addEventListener("click", (e) => {
     return;
   }
   p.blurred = !p.blurred;
-  savePhoto(p);
-  renderSlot(i);
+  saveSlot(i);
+  render();
 });
 
 slotInput.addEventListener("change", () => {
@@ -187,20 +248,10 @@ slotInput.addEventListener("change", () => {
   slotInput.value = "";
 });
 
-// ---------- menu ----------
+// ---------- controls ----------
 
-function setSlotCount(n) {
-  const lastPhoto = Math.max(-1, ...photos.keys());
-  slotCount = Math.min(MAX_SLOTS, Math.max(MIN_SLOTS, n, lastPhoto + 1));
-  countOut.textContent = slotCount;
-  savePref("slots", slotCount);
-  renderBoard();
-}
-
-function setCardSize(px) {
-  document.documentElement.style.setProperty("--card-size", px + "px");
-  savePref("size", px);
-}
+fewerBtn.addEventListener("click", removeLastSlot);
+moreBtn.addEventListener("click", addSlot);
 
 function toggleMenu(open = menu.hidden) {
   menu.hidden = !open;
@@ -216,30 +267,26 @@ document.addEventListener("keydown", (e) => {
 });
 
 bulkInput.addEventListener("change", () => {
-  fillEmpty(bulkInput.files);
+  fillBlank(bulkInput.files);
   bulkInput.value = "";
   toggleMenu(false);
 });
 
-document.getElementById("fewer").addEventListener("click", () => setSlotCount(slotCount - STEP));
-document.getElementById("more").addEventListener("click", () => setSlotCount(slotCount + STEP));
-sizeInput.addEventListener("input", () => setCardSize(sizeInput.value));
-
 document.getElementById("reset").addEventListener("click", () => {
-  for (const p of photos.values()) {
-    if (p.blurred) {
+  slots.forEach((p, i) => {
+    if (p && p.blurred) {
       p.blurred = false;
-      savePhoto(p);
-      renderSlot(p.slot);
+      saveSlot(i);
     }
-  }
+  });
+  render();
 });
 
 document.getElementById("clear").addEventListener("click", () => {
-  if (!photos.size || !confirm("Remove all photos from the board?")) return;
-  photos.clear();
-  clearPhotos();
-  renderBoard();
+  if (!slots.some(Boolean) || !confirm("Remove all photos from the board?")) return;
+  slots = slots.map(() => null);
+  saveAll();
+  render();
 });
 
 // ---------- drag and drop ----------
@@ -264,21 +311,23 @@ window.addEventListener("drop", (e) => {
   document.body.classList.remove("dragging");
   // Dropping on a slot starts filling from that slot.
   const target = document.elementsFromPoint(e.clientX, e.clientY).find((n) => n.classList && n.classList.contains("slot"));
-  fillEmpty(e.dataTransfer.files, target ? Number(target.dataset.slot) : 0);
+  fillBlank(e.dataTransfer.files, target ? Number(target.dataset.slot) : 0);
 });
 
 // ---------- start up ----------
 
 (async function init() {
-  const size = loadPref("size");
-  if (size) sizeInput.value = size;
-  setCardSize(sizeInput.value);
-
+  let saved = [];
   try {
     db = await openDb();
-    for (const p of (await loadPhotos()) || []) photos.set(p.slot, p);
+    saved = (await loadPhotos()) || [];
   } catch (err) {
     console.warn("Saving is unavailable in this browser; photos will reset on refresh.", err);
   }
-  setSlotCount(Number(loadPref("slots")) || 24);
+  const lastPhoto = Math.max(-1, ...saved.map((p) => p.slot));
+  const storedCount = loadCount();
+  const count = Math.max(storedCount ?? DEFAULT_SLOTS, lastPhoto + 1);
+  slots = Array.from({ length: count }, () => null);
+  for (const p of saved) slots[p.slot] = { src: p.src, blurred: p.blurred };
+  render();
 })();
