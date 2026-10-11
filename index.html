@@ -4,34 +4,63 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Guess Who</title>
+  <link rel="preload" href="fonts/luckiest-guy.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Guess Who?</h1>
-    <div class="controls">
-      <label class="btn primary">
-        + Add photos
-        <input id="file-input" type="file" accept="image/*" multiple hidden>
-      </label>
-      <label class="size">
-        Card size
-        <input id="size" type="range" min="160" max="480" step="10" value="300">
-      </label>
-      <button id="reset" class="btn">Unblur all</button>
-      <button id="clear" class="btn danger">Remove all</button>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <button id="menu-btn" class="menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+    <span></span><span></span><span></span>
+  </button>
+
+  <aside id="menu" class="menu" hidden>
+    <h2>Board</h2>
+    <label class="btn primary">
+      + Add photos
+      <input id="bulk-input" type="file" accept="image/*" multiple hidden>
+    </label>
+    <p class="hint">Fills the empty slots in order. You can also drag photos onto the page, or click any empty slot.</p>
+
+    <div class="row">
+      <span>Slots</span>
+      <div class="stepper">
+        <button id="fewer" type="button" aria-label="Fewer slots">−</button>
+        <output id="slot-count">24</output>
+        <button id="more" type="button" aria-label="More slots">+</button>
+      </div>
     </div>
+
+    <label class="row">
+      <span>Card size</span>
+      <input id="size" type="range" min="90" max="320" step="10" value="150">
+    </label>
+
+    <button id="reset" class="btn" type="button">Unblur all</button>
+    <button id="clear" class="btn danger" type="button">Remove all photos</button>
+  </aside>
+
+  <header>
+    <svg class="logo" viewBox="-20 -10 580 270" role="img" aria-label="Guess Who?">
+      <defs>
+        <g id="logo-words" transform="rotate(-6 260 125)">
+          <text x="225" y="112" text-anchor="middle" font-size="120">Guess</text>
+          <text x="215" y="222" text-anchor="middle" font-size="120">Who</text>
+          <text x="440" y="215" text-anchor="middle" font-size="200">?</text>
+        </g>
+      </defs>
+      <use href="#logo-words" class="logo-outer"/>
+      <use href="#logo-words" class="logo-inner"/>
+      <use href="#logo-words" class="logo-fill"/>
+    </svg>
   </header>
 
   <main>
-    <p id="empty" class="empty">
-      Click <strong>+ Add photos</strong> (or drag photos onto the page) to build your board.<br>
-      Click a picture to blur it out. Click it again to bring it back.
-    </p>
     <div id="board" class="board"></div>
   </main>
 
-  <div id="drop-hint" class="drop-hint">Drop photos to add them</div>
+  <input id="slot-input" type="file" accept="image/*" hidden>
+  <div id="drop-hint" class="drop-hint">Drop photos to fill the empty slots</div>
 
   <script src="app.js"></script>
 </body>
