@@ -1,8 +1,11 @@
 // Everything is saved in the browser (IndexedDB), so boards are still there after a refresh.
 //   boards: { id, name, bg, slots: [ null | { photo, blurred } ] }   one record per board
 //   photos: { id, src }                                               the actual images
-const DB_NAME = "guess-who";
-const DB_VERSION = 3;
+// A fresh database name, so opening it never has to wait for an old tab that still
+// has the previous version's database open. Old boards are copied over once.
+const DB_NAME = "guess-who-boards";
+const DB_VERSION = 1;
+const OLD_DB_NAME = "guess-who";
 const MAX_SIDE = 900; // resize big photos so they load fast and fit in storage
 const DEFAULT_SLOTS = 24; // two full rows of 12
 const MAX_SLOTS = 240;
@@ -42,38 +45,105 @@ function openDb() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const d = req.result;
-      const t = req.transaction;
-      const boardStore = d.objectStoreNames.contains("boards") ? t.objectStore("boards") : d.createObjectStore("boards", { keyPath: "id" });
-      const photoStore = d.objectStoreNames.contains("photos") ? t.objectStore("photos") : d.createObjectStore("photos", { keyPath: "id" });
-
-      // Move a board saved by an older version of the game into the new format.
-      const migrate = (storeName, toSlots) => {
-        if (!d.objectStoreNames.contains(storeName)) return;
-        t.objectStore(storeName).getAll().onsuccess = (e) => {
-          const old = toSlots(e.target.result);
-          let count = 0;
-          try { count = Number(localStorage.getItem("guess-who-slots")) || 0; } catch {}
-          const slots = Array.from({ length: Math.max(count || DEFAULT_SLOTS, old.length) }, () => null);
-          old.forEach((p, i) => {
-            if (!p) return;
-            const id = newId();
-            photoStore.put({ id, src: p.src });
-            slots[i] = { photo: id, blurred: !!p.blurred };
-          });
-          boardStore.put({ id: newId(), name: "My Board", bg: "scene", slots, created: Date.now() });
-          d.deleteObjectStore(storeName);
-        };
-      };
-      migrate("slots", (rows) => {
-        const out = [];
-        rows.forEach((r) => (out[r.slot] = r));
-        return out;
-      });
-      migrate("cards", (rows) => rows.sort((a, b) => a.order - b.order));
+      if (!d.objectStoreNames.contains("boards")) d.createObjectStore("boards", { keyPath: "id" });
+      if (!d.objectStoreNames.contains("photos")) d.createObjectStore("photos", { keyPath: "id" });
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const d = req.result;
+      // If a future version of the game needs to upgrade, step aside instead of blocking it.
+      d.onversionchange = () => {
+        d.close();
+        location.reload();
+      };
+      resolve(d);
+    };
     req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error("Database is busy in another tab"));
   });
+}
+
+// Read what an older version of the game saved, without changing it. Resolves to
+// { boards, photos } in the current format, or null if there's nothing to bring over.
+function readOldData() {
+  return new Promise((resolve) => {
+    let req;
+    try {
+      req = indexedDB.open(OLD_DB_NAME); // no version: never triggers an upgrade
+    } catch {
+      return resolve(null);
+    }
+    req.onupgradeneeded = () => req.transaction.abort(); // it didn't exist; don't create it
+    req.onerror = () => resolve(null);
+    req.onblocked = () => resolve(null);
+    req.onsuccess = () => {
+      const d = req.result;
+      const names = ["boards", "photos", "slots", "cards"].filter((n) => d.objectStoreNames.contains(n));
+      if (!names.length) {
+        d.close();
+        return resolve(null);
+      }
+      const t = d.transaction(names);
+      const got = {};
+      names.forEach((n) => (t.objectStore(n).getAll().onsuccess = (e) => (got[n] = e.target.result)));
+      t.onerror = () => {
+        d.close();
+        resolve(null);
+      };
+      t.oncomplete = () => {
+        d.close();
+        resolve(convertOld(got));
+      };
+    };
+  });
+}
+
+function convertOld(got) {
+  // The short-lived multi-board version already used the current format.
+  if (got.boards && got.boards.length) return { boards: got.boards, photos: got.photos || [] };
+
+  // Single-board versions: one photo per slot.
+  let slots = [];
+  if (got.slots) got.slots.forEach((r) => (slots[r.slot] = r));
+  else if (got.cards) slots = got.cards.sort((a, b) => a.order - b.order);
+  if (!slots.length) return null;
+
+  let count = 0;
+  try { count = Number(localStorage.getItem("guess-who-slots")) || 0; } catch {}
+  const b = makeBoard("My Board");
+  const photos = [];
+  b.slots = Array.from({ length: Math.max(count || DEFAULT_SLOTS, slots.length) }, (_, i) => {
+    const p = slots[i];
+    if (!p || !p.src) return null;
+    const id = newId();
+    photos.push({ id, src: p.src });
+    return { photo: id, blurred: !!p.blurred };
+  });
+  return { boards: [b], photos };
+}
+
+// Runs until it has finished once, so a slow first try is retried on the next visit.
+async function importOldData() {
+  try {
+    if (localStorage.getItem("guess-who-imported")) return [];
+  } catch {}
+  const done = () => {
+    try { localStorage.setItem("guess-who-imported", "1"); } catch {}
+  };
+  const old = await readOldData();
+  if (!old) {
+    done();
+    return [];
+  }
+  await write("photos", (s) => old.photos.forEach((p) => s.put(p)));
+  await write("boards", (s) => old.boards.forEach((b) => s.put(b)));
+  done();
+  old.photos.forEach((p) => photoSrc.set(p.id, p.src));
+  return old.boards;
+}
+
+// Give up waiting on storage after a few seconds so the board always shows.
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out")), ms))]);
 }
 
 function write(storeName, fn) {
@@ -412,11 +482,15 @@ window.addEventListener("drop", (e) => {
 
 (async function init() {
   try {
-    db = await openDb();
+    db = await withTimeout(openDb(), 4000);
     boards = (await readAll("boards")).sort((a, b) => (a.created || 0) - (b.created || 0));
     for (const p of await readAll("photos")) photoSrc.set(p.id, p.src);
+    const imported = await withTimeout(importOldData(), 4000).catch(() => []);
+    const have = new Set(boards.map((b) => b.id));
+    boards = boards.concat(imported.filter((b) => !have.has(b.id))).sort((a, b) => (a.created || 0) - (b.created || 0));
   } catch (err) {
-    console.warn("Saving is unavailable in this browser; boards will reset on refresh.", err);
+    db = null;
+    console.warn("Saving is unavailable right now; changes won't be kept after a refresh.", err);
   }
   if (!boards.length) {
     boards.push(makeBoard("My Board"));
