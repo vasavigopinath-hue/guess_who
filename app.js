@@ -8,10 +8,7 @@ const MAX_SLOTS = 240;
 const board = document.getElementById("board");
 const bulkInput = document.getElementById("bulk-input");
 const slotInput = document.getElementById("slot-input");
-const countOut = document.getElementById("slot-count");
 const remainingOut = document.getElementById("remaining");
-const fewerBtn = document.getElementById("fewer");
-const moreBtn = document.getElementById("more");
 const menu = document.getElementById("menu");
 const menuBtn = document.getElementById("menu-btn");
 
@@ -143,17 +140,6 @@ function addSlot() {
   render();
 }
 
-// Remove the last slot. If it holds a photo, check first.
-function removeLastSlot() {
-  if (!slots.length) return;
-  const last = slots.length - 1;
-  if (slots[last] && !confirm("The last slot has a photo. Delete it?")) return;
-  slots.pop();
-  saveSlot(last); // slot is gone, so this deletes it from storage
-  saveCount();
-  render();
-}
-
 // Delete one specific slot; the ones after it slide back to fill the gap.
 function deleteSlot(i) {
   slots.splice(i, 1);
@@ -167,21 +153,20 @@ function deleteSlot(i) {
 function render() {
   board.innerHTML = "";
   slots.forEach((p, i) => board.appendChild(slotEl(p, i)));
+  if (slots.length < MAX_SLOTS) board.appendChild(addTile());
 
-  countOut.textContent = slots.length;
-  fewerBtn.disabled = slots.length === 0;
-  moreBtn.disabled = slots.length >= MAX_SLOTS;
+  // Every slot counts; blurring one knocks it out.
+  const left = slots.filter((p) => !(p && p.blurred)).length;
+  remainingOut.textContent = `${left} of ${slots.length} remaining`;
+}
 
-  const people = slots.filter(Boolean);
-  const left = people.filter((p) => !p.blurred).length;
-  if (!people.length) {
-    remainingOut.textContent = "Add photos to start";
-  } else {
-    remainingOut.innerHTML = "";
-    const strong = document.createElement("strong");
-    strong.textContent = left;
-    remainingOut.append(strong, ` of ${people.length} ${people.length === 1 ? "person" : "people"} remaining`);
-  }
+function addTile() {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "add-slot";
+  el.innerHTML = '<span aria-hidden="true">+</span>Add slot';
+  el.addEventListener("click", addSlot);
+  return el;
 }
 
 function slotEl(p, i) {
@@ -195,18 +180,17 @@ function slotEl(p, i) {
   remove.setAttribute("role", "button");
   remove.textContent = "×";
 
+  remove.title = "Delete this slot";
+  remove.setAttribute("aria-label", "Delete this slot");
+
   if (!p) {
     el.setAttribute("aria-label", `Blank slot ${i + 1}: add a photo`);
-    remove.title = "Delete this slot";
-    remove.setAttribute("aria-label", "Delete this slot");
     el.append(remove);
     return el;
   }
 
   el.setAttribute("aria-label", `Person ${i + 1}${p.blurred ? " (knocked out)" : ""}`);
   el.setAttribute("aria-pressed", String(p.blurred));
-  remove.title = "Remove photo";
-  remove.setAttribute("aria-label", "Remove photo");
 
   const img = document.createElement("img");
   img.src = p.src;
@@ -223,13 +207,7 @@ board.addEventListener("click", (e) => {
   const p = slots[i];
 
   if (e.target.closest(".remove")) {
-    if (p) {
-      slots[i] = null; // photo off, blank slot stays
-      saveSlot(i);
-      render();
-    } else {
-      deleteSlot(i);
-    }
+    deleteSlot(i);
     return;
   }
   if (!p) {
@@ -249,9 +227,6 @@ slotInput.addEventListener("change", () => {
 });
 
 // ---------- controls ----------
-
-fewerBtn.addEventListener("click", removeLastSlot);
-moreBtn.addEventListener("click", addSlot);
 
 function toggleMenu(open = menu.hidden) {
   menu.hidden = !open;

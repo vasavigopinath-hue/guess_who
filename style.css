@@ -144,7 +144,7 @@ header {
 .logo-fill { fill: url(#logo-red); }
 
 /* Board */
-main { padding: 10px 24px 110px; }
+main { padding: 10px 24px 80px; }
 
 .board {
   display: grid;
@@ -219,7 +219,6 @@ main { padding: 10px 24px 110px; }
   opacity: 0;
   transition: opacity 0.15s;
 }
-.slot.empty .remove { background: rgba(179, 38, 30, 0.85); }
 .slot:hover .remove, .remove:focus-visible { opacity: 1; }
 @media (hover: none) { .remove { opacity: 0.85; } }
 
@@ -241,43 +240,43 @@ main { padding: 10px 24px 110px; }
 }
 body.dragging .drop-hint { display: flex; }
 
-/* Bottom bar: slot count + people remaining */
-.status-bar {
-  position: fixed;
-  left: 50%;
-  bottom: 16px;
-  z-index: 20;
+/* "Add slot" tile at the end of the board */
+.add-slot {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px 22px;
-  width: max-content;
-  max-width: calc(100vw - 32px);
-  padding: 10px 20px;
-  font-weight: 800;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 999px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  transform: translateX(-50%);
-}
-.slot-controls { display: flex; align-items: center; gap: 10px; }
-.slot-controls button {
-  width: 36px;
-  height: 36px;
+  gap: 4px;
+  aspect-ratio: 3 / 4;
+  padding: 0;
   font: inherit;
-  font-size: 1.3rem;
+  font-weight: 800;
+  font-size: 0.9rem;
   color: #fff;
-  background: var(--navy);
-  border: 0;
-  border-radius: 50%;
+  background: rgba(22, 42, 96, 0.22);
+  border: 3px dashed #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 8px;
   cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
-.slot-controls button:hover { filter: brightness(1.2); }
-.slot-controls button:disabled { opacity: 0.35; cursor: default; filter: none; }
-.remaining { font-size: 1.1rem; }
-.remaining strong { color: var(--accent); font-size: 1.35rem; }
+.add-slot span { font-size: 2.2rem; line-height: 1; }
+.add-slot:hover { background: rgba(22, 42, 96, 0.4); }
+
+/* Count at the bottom: plain grey text */
+.remaining {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  z-index: 20;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 1.6rem;
+  color: rgba(60, 60, 67, 0.6);
+  pointer-events: none;
+}
 
 /* Medium screens: keep 12 per row but tighten spacing */
 @media (max-width: 1100px) {
@@ -293,5 +292,8 @@ body.dragging .drop-hint { display: flex; }
   .menu-btn { top: 10px; left: 8px; }
   .menu { top: 58px; left: 16px; }
   header { padding-top: 44px; }
-  main { padding: 10px 16px 130px; }
+  main { padding: 10px 16px 70px; }
+  .remaining { font-size: 1.25rem; bottom: 12px; }
+  .add-slot { font-size: 0.7rem; border-width: 2px; }
+  .add-slot span { font-size: 1.6rem; }
 }
