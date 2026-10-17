@@ -94,6 +94,16 @@ body.solid-bg .remaining { color: rgba(255, 255, 255, 0.7); }
 .save-btn.unsaved { color: #fff; background: var(--accent); }
 .save-btn:disabled { cursor: progress; opacity: 0.85; }
 
+/* Locked (after Save): only playing is allowed until Edit is pressed */
+body:not(.locked) .locked-only,
+body.locked .edit-only,
+body.locked .save-btn .ic-save,
+body:not(.locked) .save-btn .ic-edit { display: none; }
+body.locked .slot.empty { cursor: default; }
+body.locked .slot.empty:hover { transform: none; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18); }
+body.locked .slot.empty::before,
+body.locked .slot.empty::after { display: none; }
+
 /* Dark dropdown menu */
 .menu {
   position: fixed;
@@ -114,6 +124,8 @@ body.solid-bg .remaining { color: rgba(255, 255, 255, 0.7); }
 .menu[hidden] { display: none; }
 .menu hr { margin: 8px 2px; border: 0; border-top: 1px solid #3a3b41; }
 .menu-label { padding: 6px 12px 4px; font-size: 0.8rem; color: #9a9ca3; }
+.menu-hint { margin: 2px 12px 6px; font-size: 0.85rem; line-height: 1.4; color: #b9bbc2; }
+.menu-hint strong { color: #fff; }
 
 .menu-item {
   display: flex;

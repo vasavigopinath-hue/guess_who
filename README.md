@@ -10,6 +10,7 @@ A simple Guess Who board you fill with your own photos.
 - The board shows 12 slots per row (6 per row on phones) and starts with 24 blank slots.
 - Boards and photos are saved in your browser, so they're still there after a refresh.
 - Click **Save** (top right) to put your boards and photos on the website, so they show up on any device that opens it. Knock-outs aren't saved, so every device plays its own round.
+- After saving, the board is **locked**: you can still knock people out and switch boards, but adding, deleting, renaming and colours are hidden until you press **Edit**.
 
 It's a plain static site (HTML, CSS and JS) with no build step, plus two small Vercel functions in `api/` that save and load boards using [Vercel Blob](https://vercel.com/docs/vercel-blob).
 

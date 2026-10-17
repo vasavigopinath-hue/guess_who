@@ -215,6 +215,7 @@ async function putPhoto(b, i, file) {
 
 // Fill blank slots in order (starting at startAt), adding more slots if needed.
 async function fillBlank(files, startAt = 0) {
+  if (!editing) return;
   const b = current;
   const images = [...files].filter((f) => f.type.startsWith("image/"));
   let i = startAt;
@@ -229,7 +230,7 @@ async function fillBlank(files, startAt = 0) {
 // ---------- slots ----------
 
 function addSlot() {
-  if (current.slots.length >= MAX_SLOTS) return;
+  if (!editing || current.slots.length >= MAX_SLOTS) return;
   current.slots.push(null);
   saveBoard();
   markDirty();
@@ -238,6 +239,7 @@ function addSlot() {
 
 // Delete one slot; the ones after it slide back to fill the gap.
 function deleteSlot(i) {
+  if (!editing) return;
   const [gone] = current.slots.splice(i, 1);
   if (gone) deletePhotos([gone.photo]);
   saveBoard();
@@ -259,6 +261,7 @@ function switchTo(b) {
 }
 
 function addBoard() {
+  if (!editing) return;
   const name = prompt("Name your new board", `Board ${boards.length + 1}`);
   if (name === null) return;
   const b = makeBoard(name.trim() || `Board ${boards.length + 1}`);
@@ -270,6 +273,7 @@ function addBoard() {
 }
 
 function renameBoard() {
+  if (!editing) return;
   const name = prompt("Rename this board", current.name);
   if (name === null || !name.trim()) return;
   current.name = name.trim();
@@ -279,6 +283,7 @@ function renameBoard() {
 }
 
 function deleteBoard() {
+  if (!editing) return;
   if (!confirm(`Delete "${current.name}" and all its photos?`)) return;
   const gone = current;
   deletePhotos(gone.slots.filter(Boolean).map((s) => s.photo));
@@ -306,7 +311,7 @@ function render() {
   document.title = boards.length > 1 ? `${current.name} · Guess Who` : "Guess Who";
   board.innerHTML = "";
   current.slots.forEach((s, i) => board.appendChild(slotEl(s, i)));
-  if (current.slots.length < MAX_SLOTS) board.appendChild(addTile());
+  if (editing && current.slots.length < MAX_SLOTS) board.appendChild(addTile());
 
   // Every slot counts; blurring one knocks it out.
   const left = current.slots.filter((s) => !(s && s.blurred)).length;
@@ -343,6 +348,7 @@ function renderMenu() {
     sw.setAttribute("aria-pressed", String((current.bg || "scene") === bg.id));
     sw.style.background = bg.css ? `${bg.css} center / cover` : bg.id;
     sw.addEventListener("click", () => {
+      if (!editing) return;
       current.bg = bg.id;
       saveBoard();
       markDirty();
@@ -376,8 +382,9 @@ function slotEl(s, i) {
   remove.setAttribute("aria-label", "Delete this slot");
 
   if (!s) {
-    el.setAttribute("aria-label", `Blank slot ${i + 1}: add a photo`);
-    el.append(remove);
+    el.setAttribute("aria-label", editing ? `Blank slot ${i + 1}: add a photo` : `Blank slot ${i + 1}`);
+    if (editing) el.append(remove);
+    else el.disabled = true;
     return el;
   }
 
@@ -388,7 +395,8 @@ function slotEl(s, i) {
   img.src = photoSrc.get(s.photo) || (s.photo.startsWith("/api/") ? s.photo : "");
   img.alt = "";
   img.draggable = false;
-  el.append(img, remove);
+  el.append(img);
+  if (editing) el.append(remove);
   return el;
 }
 
@@ -403,6 +411,7 @@ board.addEventListener("click", (e) => {
     return;
   }
   if (!s) {
+    if (!editing) return;
     pickingSlot = i;
     slotInput.click();
     return;
@@ -466,7 +475,7 @@ let dragDepth = 0;
 const hasFiles = (e) => [...e.dataTransfer.types].includes("Files");
 
 window.addEventListener("dragenter", (e) => {
-  if (!hasFiles(e)) return;
+  if (!hasFiles(e) || !editing) return;
   e.preventDefault();
   dragDepth++;
   document.body.classList.add("dragging");
@@ -502,6 +511,21 @@ const pref = (key, value) => {
 let dirty = pref("dirty") === "1";
 let saving = false;
 
+// After saving, the board is locked: you can still knock people out and switch
+// boards, but adding, deleting and changing things waits until you press Edit.
+// A device that has never saved starts in edit mode so you can build a board.
+let editing = pref("editing") !== null ? pref("editing") === "1" : !pref("synced");
+document.body.classList.toggle("locked", !editing);
+
+function setEditing(on) {
+  editing = on;
+  pref("editing", on ? "1" : "0");
+  document.body.classList.toggle("locked", !on);
+  toggleMenu(false);
+  render();
+  showSaveState();
+}
+
 function markDirty() {
   dirty = true;
   pref("dirty", "1");
@@ -509,8 +533,9 @@ function markDirty() {
 }
 
 function showSaveState(text) {
-  saveLabel.textContent = text || (saving ? "Saving…" : dirty ? "Save" : "Saved");
-  saveBtn.classList.toggle("unsaved", dirty && !saving);
+  saveLabel.textContent = text || (saving ? "Saving…" : !editing ? "Edit" : "Save");
+  saveBtn.classList.toggle("unsaved", editing && dirty && !saving);
+  saveBtn.title = editing ? "Save your boards to the website and lock them" : "Unlock the board to add, delete or change things";
   saveBtn.disabled = saving;
 }
 
@@ -545,6 +570,8 @@ async function uploadPhoto(src) {
 
 async function saveToSite() {
   if (saving) return;
+  // Nothing new since the last save: just lock.
+  if (!dirty && pref("synced")) return setEditing(false);
   saving = true;
   showSaveState();
   try {
@@ -578,13 +605,13 @@ async function saveToSite() {
     pref("synced", (await res.json()).savedAt);
     dirty = false;
     pref("dirty", null);
+    editing = false; // locked until Edit is pressed (setEditing runs below, after rendering)
   } catch (err) {
     console.warn(err);
     if (err.message !== "cancelled") alert(saveErrorMessage(err));
   } finally {
     saving = false;
-    render(); // photos may now point at their saved copies
-    showSaveState();
+    setEditing(editing); // re-renders: photos may now point at their saved copies
   }
 }
 
@@ -632,10 +659,14 @@ async function loadFromSite() {
   pref("synced", data.savedAt);
   dirty = false;
   pref("dirty", null);
+  editing = false;
+  pref("editing", "0");
+  document.body.classList.add("locked");
   switchTo(boards.find((b) => current && b.id === current.id) || boards[0]);
+  showSaveState();
 }
 
-saveBtn.addEventListener("click", saveToSite);
+saveBtn.addEventListener("click", () => (editing ? saveToSite() : setEditing(true)));
 showSaveState();
 
 // ---------- start up ----------
