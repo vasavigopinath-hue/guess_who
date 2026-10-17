@@ -18,7 +18,7 @@ It's a plain static site (HTML, CSS and JS) with no build step, plus two small V
 
 1. Go to [vercel.com/new](https://vercel.com/new) and import this repo.
 2. Leave the framework preset as **Other** and click **Deploy**.
-3. To turn on **Save**: in the project, open **Storage → Create → Blob**, connect it to this project, then redeploy. That adds `BLOB_READ_WRITE_TOKEN` for you.
+3. To turn on **Save**: in the project, open **Storage → Create → Blob**, connect it to this project, then redeploy. That adds `BLOB_READ_WRITE_TOKEN` (or `BLOB_STORE_ID`) for you.
 4. Optional: add an environment variable `SAVE_PASSWORD` so only people who know it can save. Anyone can still view the boards.
 
 ## Run locally

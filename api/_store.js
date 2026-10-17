@@ -5,7 +5,9 @@ import { get, put, list, del } from "@vercel/blob";
 let access = process.env.BLOB_ACCESS || null;
 const modes = () => (access ? [access] : ["public", "private"]);
 
-export const storageConnected = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+// Connected stores get either a read-write token or (newer) a store id used with
+// Vercel's built-in OIDC login; the Blob library handles both.
+export const storageConnected = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 
 // If SAVE_PASSWORD is set in Vercel, saving needs it. Loading never does.
 export function allowedToSave(req) {
