@@ -368,9 +368,12 @@ function addTile() {
   return el;
 }
 
+// A div rather than a <button>: inside a button, phones won't treat the photo as a
+// real picture, so press-and-hold wouldn't offer Save to Photos / Copy / Share.
 function slotEl(s, i) {
-  const el = document.createElement("button");
-  el.type = "button";
+  const el = document.createElement("div");
+  el.setAttribute("role", "button");
+  el.tabIndex = 0;
   el.className = "slot" + (s ? (s.blurred ? " blurred" : "") : " empty");
   el.dataset.slot = i;
 
@@ -384,7 +387,10 @@ function slotEl(s, i) {
   if (!s) {
     el.setAttribute("aria-label", editing ? `Blank slot ${i + 1}: add a photo` : `Blank slot ${i + 1}`);
     if (editing) el.append(remove);
-    else el.disabled = true;
+    else {
+      el.setAttribute("aria-disabled", "true");
+      el.tabIndex = -1;
+    }
     return el;
   }
 
@@ -394,11 +400,18 @@ function slotEl(s, i) {
   const img = document.createElement("img");
   img.src = photoSrc.get(s.photo) || (s.photo.startsWith("/api/") ? s.photo : "");
   img.alt = "";
-  img.draggable = false;
   el.append(img);
   if (editing) el.append(remove);
   return el;
 }
+
+// Keyboard: Enter or Space acts like a click on the focused card.
+board.addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("slot")) {
+    e.preventDefault();
+    e.target.click();
+  }
+});
 
 board.addEventListener("click", (e) => {
   const el = e.target.closest(".slot");
