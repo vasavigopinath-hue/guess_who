@@ -577,7 +577,7 @@ async function uploadPhoto(src) {
     headers: { "Content-Type": "application/octet-stream" },
     body: bytes,
   });
-  if (!res.ok) throw Object.assign(new Error("upload failed"), { status: res.status });
+  if (!res.ok) throw await httpError("upload failed", res);
   return (await res.json()).url;
 }
 
@@ -614,7 +614,7 @@ async function saveToSite() {
         boards: boards.map((b) => ({ id: b.id, name: b.name, bg: b.bg, created: b.created, slots: b.slots.map((s) => s && { photo: s.photo }) })),
       }),
     });
-    if (!res.ok) throw Object.assign(new Error("save failed"), { status: res.status });
+    if (!res.ok) throw await httpError("save failed", res);
     pref("synced", (await res.json()).savedAt);
     dirty = false;
     pref("dirty", null);
@@ -628,11 +628,18 @@ async function saveToSite() {
   }
 }
 
+async function httpError(message, res) {
+  let body = {};
+  try { body = await res.json(); } catch {}
+  return Object.assign(new Error(message), { status: res.status, code: body.error, detail: body.detail });
+}
+
 function saveErrorMessage(err) {
   if (err.status === 503) return "Saving isn't set up yet: connect a Blob store to this project in Vercel (Storage → Blob), then redeploy.";
   if (err.status === 404) return "Saving only works on the Vercel site, not on a local copy.";
   if (err.message === "wrong-password") return "Wrong save password, so nothing was saved.";
-  return "Couldn't save right now. Check your internet connection and try again.";
+  if (err.status) return `Couldn't save (error ${err.status}${err.code ? " " + err.code : ""}).${err.detail ? "\n\n" + err.detail : ""}`;
+  return `Couldn't save: ${err.message || err}. Check your internet connection and try again.`;
 }
 
 // Load the boards saved on the site if they're newer than what this device has.
@@ -680,6 +687,11 @@ async function loadFromSite() {
 }
 
 saveBtn.addEventListener("click", () => (editing ? saveToSite() : setEditing(true)));
+
+// Coming back to the tab picks up anything saved from another device meanwhile.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && current && !saving) loadFromSite();
+});
 showSaveState();
 
 // ---------- start up ----------

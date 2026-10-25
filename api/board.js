@@ -1,6 +1,6 @@
 // GET /api/board   the saved boards everyone sees
 // PUT /api/board   save boards (photos must already be uploaded through /api/photo)
-import { allowedToSave, del, getBlob, listAll, putBlob, storageConnected, streamToText } from "./_store.js";
+import { allowedToSave, del, describe, getBlob, listAll, putBlob, storageConnected, streamToText } from "./_store.js";
 
 const STATE = "state/boards.json";
 const PHOTO = /^\/api\/photo\?name=([0-9a-f]{64}\.jpg)$/;
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "method-not-allowed" });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "server-error" });
+    return res.status(500).json({ error: "server-error", detail: describe(err) });
   }
 }
 

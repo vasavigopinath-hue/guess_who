@@ -73,3 +73,8 @@ export async function rawBody(req, limit) {
   }
   return Buffer.concat(chunks);
 }
+
+// A short, safe description of what went wrong, shown in the game's error popup.
+export function describe(err) {
+  return `${(err && err.name) || "Error"}: ${String((err && err.message) || err).slice(0, 200)}`;
+}

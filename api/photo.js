@@ -1,7 +1,7 @@
 // GET  /api/photo?name=<sha256>.jpg   serves a saved photo
 // POST /api/photo?name=<sha256>.jpg   stores a photo (body: the JPEG bytes)
 import { Readable } from "node:stream";
-import { allowedToSave, getBlob, putBlob, rawBody, storageConnected } from "./_store.js";
+import { allowedToSave, describe, getBlob, putBlob, rawBody, storageConnected } from "./_store.js";
 
 const NAME = /^[0-9a-f]{64}\.jpg$/;
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -39,6 +39,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "method-not-allowed" });
   } catch (err) {
     console.error(err);
-    return res.status(err.status || 500).json({ error: err.status === 413 ? "too-large" : "server-error" });
+    return res.status(err.status || 500).json({ error: err.status === 413 ? "too-large" : "server-error", detail: describe(err) });
   }
 }
