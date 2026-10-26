@@ -1,12 +1,15 @@
 // Shared helpers for the save/load functions. Files starting with "_" are not routes.
 import { get, put, list, del } from "@vercel/blob";
 
-// A Blob store is either public or private. Try public first and remember what works.
+// A Blob store is either public or private (newer stores default to private).
+// Try the last mode that worked for a write, then the other. Only successful
+// writes decide this: a read can look fine in the wrong mode.
 let access = process.env.BLOB_ACCESS || null;
-const modes = () => (access ? [access] : ["public", "private"]);
+const modes = () => {
+  const first = access || "private";
+  return [first, first === "private" ? "public" : "private"];
+};
 
-// Connected stores get either a read-write token or (newer) a store id used with
-// Vercel's built-in OIDC login; the Blob library handles both.
 export const storageConnected = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 
 // If SAVE_PASSWORD is set in Vercel, saving needs it. Loading never does.
@@ -35,13 +38,13 @@ export async function getBlob(pathname, options = {}) {
   for (const mode of modes()) {
     try {
       const result = await get(pathname, { ...options, access: mode });
-      if (result) access = mode;
-      return result;
+      if (!result || result.statusCode === 200) return result;
     } catch (err) {
       lastErr = err;
     }
   }
-  throw lastErr;
+  if (lastErr) throw lastErr;
+  return null;
 }
 
 export async function listAll(prefix) {
