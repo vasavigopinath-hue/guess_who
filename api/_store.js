@@ -18,32 +18,36 @@ export function allowedToSave(req) {
   return !pw || req.headers["x-save-password"] === pw;
 }
 
+// "Cannot use public access on a private store" (or the reverse) just means we
+// guessed the wrong mode; any other error is the real problem worth reporting.
+const wrongMode = (err) => /cannot use (public|private) access/i.test(String(err && err.message));
+
 export async function putBlob(pathname, body, options) {
-  let lastErr;
+  const errors = [];
   for (const mode of modes()) {
     try {
       const result = await put(pathname, body, { ...options, access: mode });
       access = mode;
       return result;
     } catch (err) {
-      lastErr = err;
+      errors.push(err);
     }
   }
-  throw lastErr;
+  throw errors.find((e) => !wrongMode(e)) || errors[0];
 }
 
 // Returns the get() result, or null if the blob doesn't exist.
 export async function getBlob(pathname, options = {}) {
-  let lastErr;
+  const errors = [];
   for (const mode of modes()) {
     try {
       const result = await get(pathname, { ...options, access: mode });
       if (!result || result.statusCode === 200) return result;
     } catch (err) {
-      lastErr = err;
+      errors.push(err);
     }
   }
-  if (lastErr) throw lastErr;
+  if (errors.length) throw errors.find((e) => !wrongMode(e)) || errors[0];
   return null;
 }
 
