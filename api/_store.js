@@ -1,14 +1,9 @@
 // Shared helpers for the save/load functions. Files starting with "_" are not routes.
 import { get, put, list, del } from "@vercel/blob";
 
-// A Blob store is either public or private (newer stores default to private).
-// Try the last mode that worked for a write, then the other. Only successful
-// writes decide this: a read can look fine in the wrong mode.
-let access = process.env.BLOB_ACCESS || null;
-const modes = () => {
-  const first = access || "private";
-  return [first, first === "private" ? "public" : "private"];
-};
+// This project's Blob store is private, so every read and write uses private
+// access (set BLOB_ACCESS=public in Vercel only if you switch to a public store).
+const access = process.env.BLOB_ACCESS === "public" ? "public" : "private";
 
 export const storageConnected = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 
@@ -18,37 +13,14 @@ export function allowedToSave(req) {
   return !pw || req.headers["x-save-password"] === pw;
 }
 
-// "Cannot use public access on a private store" (or the reverse) just means we
-// guessed the wrong mode; any other error is the real problem worth reporting.
-const wrongMode = (err) => /cannot use (public|private) access/i.test(String(err && err.message));
-
-export async function putBlob(pathname, body, options) {
-  const errors = [];
-  for (const mode of modes()) {
-    try {
-      const result = await put(pathname, body, { ...options, access: mode });
-      access = mode;
-      return result;
-    } catch (err) {
-      errors.push(err);
-    }
-  }
-  throw errors.find((e) => !wrongMode(e)) || errors[0];
+export function putBlob(pathname, body, options) {
+  return put(pathname, body, { ...options, access });
 }
 
 // Returns the get() result, or null if the blob doesn't exist.
 export async function getBlob(pathname, options = {}) {
-  const errors = [];
-  for (const mode of modes()) {
-    try {
-      const result = await get(pathname, { ...options, access: mode });
-      if (!result || result.statusCode === 200) return result;
-    } catch (err) {
-      errors.push(err);
-    }
-  }
-  if (errors.length) throw errors.find((e) => !wrongMode(e)) || errors[0];
-  return null;
+  const result = await get(pathname, { ...options, access });
+  return result && result.statusCode === 200 ? result : null;
 }
 
 export async function listAll(prefix) {
@@ -82,6 +54,8 @@ export async function rawBody(req, limit) {
 }
 
 // A short, safe description of what went wrong, shown in the game's error popup.
+// Includes which deployment answered, so an old frozen copy is easy to spot.
 export function describe(err) {
-  return `${(err && err.name) || "Error"}: ${String((err && err.message) || err).slice(0, 200)}`;
+  const version = (process.env.VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7);
+  return `${(err && err.name) || "Error"}: ${String((err && err.message) || err).slice(0, 200)} [server ${version}]`;
 }
